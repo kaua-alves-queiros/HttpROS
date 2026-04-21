@@ -13,11 +13,23 @@ public class RouteConfig
     [JsonPropertyName("target")]
     public string Target { get; set; } = string.Empty;
 
-    [JsonPropertyName("upstreams")]
-    public List<string> Upstreams { get; set; } = new();
+    [JsonPropertyName("balancer")]
+    public BalancerConfig Balancer { get; set; } = new();
 
     [JsonPropertyName("features")]
     public RouteFeatures Features { get; set; } = new();
+}
+
+public class BalancerConfig
+{
+    [JsonPropertyName("method")]
+    public string Method { get; set; } = "round-robin"; // round-robin, least-conn, ip-hash
+
+    [JsonPropertyName("sticky")]
+    public bool Sticky { get; set; }
+
+    [JsonPropertyName("upstreams")]
+    public List<string> Upstreams { get; set; } = new();
 }
 
 public class RouteFeatures
@@ -62,7 +74,7 @@ public class SslConfig
 public class IpFilterConfig
 {
     [JsonPropertyName("mode")]
-    public string Mode { get; set; } = "blacklist"; // whitelist, blacklist
+    public string Mode { get; set; } = "blacklist";
 
     [JsonPropertyName("whitelist")]
     public List<string> Whitelist { get; set; } = new();

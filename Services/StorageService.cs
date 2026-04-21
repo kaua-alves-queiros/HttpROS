@@ -43,6 +43,23 @@ public class StorageService
         }
     }
 
+    public RouteConfig? FindConflictingRoute(string domain, string currentType)
+    {
+        foreach (var type in _types)
+        {
+            if (type == currentType) continue;
+            string filePath = Path.Combine(type, $"{domain}.json");
+            if (File.Exists(filePath)) return LoadRoute(type, domain);
+        }
+        return null;
+    }
+
+    public void DeleteRoute(string type, string domain)
+    {
+        string filePath = Path.Combine(type.ToLower(), $"{domain}.json");
+        if (File.Exists(filePath)) File.Delete(filePath);
+    }
+
     public List<RouteConfig> GetAllRoutes()
     {
         var routes = new List<RouteConfig>();

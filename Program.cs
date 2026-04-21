@@ -28,6 +28,7 @@ class Program
             {
                 "config" => "HttpROS(config)# ",
                 "route-config" => $"HttpROS(config-route-{activeRoute?.Domain})# ",
+                "balancer-config" => $"HttpROS(config-route-{activeRoute?.Domain}-balancer)# ",
                 _ => "HttpROS> "
             };
 
@@ -43,18 +44,20 @@ class Program
 
             // Global Commands
             if (command == "clear") { Console.Clear(); continue; }
-            if (command == "show") { processor.HandleShowCommand(parts, activeRoute); continue; }
+            if (command == "show") { processor.HandleShowCommand(parts, currentMode, activeRoute); continue; }
+            if (command == "top") { currentMode = "view"; activeRoute = null; continue; }
 
             // Mode Switching & Logic
             switch (currentMode)
             {
                 case "view":
-                    if (command == "exit" || command == "quit") running = false;
-                    else if (command == "configure" || command == "conf")
+                    if (command == "configure" || command == "conf")
                     {
                         currentMode = "config";
                         AnsiConsole.MarkupLine("[yellow]Entering configuration mode...[/]");
                     }
+                    else if (command == "status") processor.HandleShowCommand(new[] { "show", "status" }, currentMode, activeRoute);
+                    else if (command == "exit" || command == "quit") running = false;
                     else AnsiConsole.MarkupLine($"[red]Error: Unknown command '{command}'.[/]");
                     break;
 
@@ -67,16 +70,19 @@ class Program
 
                         if (isNoCommand)
                         {
-                            // Logic to delete the JSON file
-                            string filePath = Path.Combine(command, $"{domain}.json");
-                            if (File.Exists(filePath))
-                            {
-                                File.Delete(filePath);
-                                AnsiConsole.MarkupLine($"[red]Route {command} {domain} deleted.[/]");
-                            }
+                            storage.DeleteRoute(command, domain);
+                            AnsiConsole.MarkupLine($"[grey]Rota {command} {domain} removida.[/]");
                         }
                         else
                         {
+                            var conflict = storage.FindConflictingRoute(domain, command);
+                            if (conflict != null)
+                            {
+                                AnsiConsole.MarkupLine($"[red]Error: O dominio '{domain}' ja esta configurado como '{conflict.Type}'.[/]");
+                                AnsiConsole.MarkupLine($"[red]Remova a rota existente antes de criar uma nova do tipo '{command}'.[/]");
+                                continue;
+                            }
+
                             activeRoute = storage.LoadRoute(command, domain) ?? new RouteConfig { Domain = domain, Type = command };
                             storage.SaveRoute(activeRoute);
                             currentMode = "route-config";
@@ -99,9 +105,49 @@ class Program
                         currentMode = "config";
                         activeRoute = null;
                     }
+                    else if (command == "balancer" && !isNoCommand)
+                    {
+                        currentMode = "balancer-config";
+                    }
+                    else if (command == "error-page" && !isNoCommand && argsList.Length == 0)
+                    {
+                        currentMode = "error-page-config";
+                    }
                     else
                     {
                         processor.HandleRouteConfig(command, argsList, activeRoute!, isNoCommand);
+                    }
+                    break;
+
+                case "balancer-config":
+                    if (command == "exit" || command == "quit")
+                    {
+                        currentMode = "route-config";
+                    }
+                    else if (command == "return")
+                    {
+                        currentMode = "config";
+                        activeRoute = null;
+                    }
+                    else
+                    {
+                        processor.HandleBalancerConfig(command, argsList, activeRoute!, isNoCommand);
+                    }
+                    break;
+
+                case "error-page-config":
+                    if (command == "exit" || command == "quit")
+                    {
+                        currentMode = "route-config";
+                    }
+                    else if (command == "return")
+                    {
+                        currentMode = "config";
+                        activeRoute = null;
+                    }
+                    else
+                    {
+                        processor.HandleErrorPageConfig(command, argsList, activeRoute!, isNoCommand);
                     }
                     break;
             }
