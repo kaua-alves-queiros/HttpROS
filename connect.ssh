@@ -1,0 +1,2 @@
+#!/bin/bash
+ssh rosadmin@localhost -p 50022
