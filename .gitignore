@@ -7,3 +7,11 @@
 *.userosscache
 *.sln.docstates
 .DS_Store
+
+# State folders (Database)
+proxy/
+static/
+redirect/
+
+# Certificates
+certs/
