@@ -1,0 +1,24 @@
+{
+  "domain": "queiros.com.br",
+  "type": "proxy",
+  "target": "10.10.0.5:8080",
+  "upstreams": [],
+  "features": {
+    "ssl": {
+      "enabled": false,
+      "provider": "lets-encrypt",
+      "certName": null
+    },
+    "gzip": false,
+    "websockets": false,
+    "cors": false,
+    "ipFilter": {
+      "mode": "whitelist",
+      "whitelist": [],
+      "blacklist": []
+    },
+    "basicAuth": null,
+    "rateLimit": null,
+    "customErrorPages": {}
+  }
+}
