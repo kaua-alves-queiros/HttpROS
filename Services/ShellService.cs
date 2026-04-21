@@ -55,6 +55,7 @@ public class ShellService
             var commands = GetAvailableCommands(mode);
             if (!commands.Contains("clear")) commands.Add("clear");
             if (!commands.Contains("show")) commands.Add("show");
+            if (!commands.Contains("top")) commands.Add("top");
             matches = commands.Where(c => c.StartsWith(currentToken)).ToList();
         }
         else if (partsCount == 2)
@@ -64,12 +65,25 @@ public class ShellService
                 matches = new List<string> { "routes", "proxy", "static", "redirect", "status", "version" }.Where(m => m.StartsWith(currentToken)).ToList();
             else if (mode == "config" && (firstPart == "proxy" || firstPart == "static" || firstPart == "redirect"))
                 matches = Directory.Exists(firstPart) ? Directory.GetFiles(firstPart, "*.json").Select(Path.GetFileNameWithoutExtension).Where(d => d!.StartsWith(currentToken)).ToList()! : new List<string>();
-            else if (mode == "config")
-                matches = new List<string> { "backup", "restore", "exit" }.Where(m => m.StartsWith(currentToken)).ToList();
             else if (mode == "route-config")
             {
                 if (firstPart == "ssl") matches = new List<string> { "lets-encrypt", "manual" }.Where(m => m.StartsWith(currentToken)).ToList();
                 else if (firstPart == "ip-filter") matches = new List<string> { "mode" }.Where(m => m.StartsWith(currentToken)).ToList();
+                else if (firstPart == "balancer") matches = new List<string> { "method", "sticky", "upstream", "no" }.Where(m => m.StartsWith(currentToken)).ToList();
+                else if (firstPart == "error-page") 
+                {
+                    matches = new List<string> { "404", "500", "502", "503", "504" }.Where(m => m.StartsWith(currentToken)).ToList();
+                }
+            }
+            else if (mode == "balancer-config")
+            {
+                if (firstPart == "sticky") matches = new List<string> { "enable", "disable" }.Where(m => m.StartsWith(currentToken)).ToList();
+                else if (firstPart == "method") matches = new List<string> { "round-robin", "least-conn", "ip-hash" }.Where(m => m.StartsWith(currentToken)).ToList();
+                else if (firstPart == "no") matches = new List<string> { "upstream", "sticky" }.Where(m => m.StartsWith(currentToken)).ToList();
+            }
+            else if (mode == "error-page-config")
+            {
+                matches = new List<string> { "404", "500", "502", "503", "504", "no" }.Where(m => m.StartsWith(currentToken)).ToList();
             }
         }
         else if (partsCount == 3)
@@ -87,9 +101,23 @@ public class ShellService
                         matches = Directory.GetFiles("certs/manual").Select(Path.GetFileName).Where(f => f!.StartsWith(currentToken)).ToList()!;
                 }
                 else if (firstPart == "ip-filter" && secondPart == "mode")
-                {
                     matches = new List<string> { "whitelist", "blacklist" }.Where(m => m.StartsWith(currentToken)).ToList();
-                }
+                else if (firstPart == "balancer" && secondPart == "method")
+                    matches = new List<string> { "round-robin", "least-conn", "ip-hash" }.Where(m => m.StartsWith(currentToken)).ToList();
+                else if (firstPart == "balancer" && secondPart == "sticky")
+                    matches = new List<string> { "enable", "disable" }.Where(m => m.StartsWith(currentToken)).ToList();
+                else if (firstPart == "balancer" && secondPart == "no")
+                    matches = new List<string> { "upstream", "sticky" }.Where(m => m.StartsWith(currentToken)).ToList();
+            }
+            else if (mode == "balancer-config" && firstPart == "no")
+            {
+                if (secondPart == "upstream") { /* No sub-completion for IPs yet */ }
+            }
+            else if (mode == "error-page-config")
+            {
+                if (firstPart == "no") matches = new List<string> { "404", "500", "502", "503", "504" }.Where(m => m.StartsWith(currentToken)).ToList();
+                else if (Directory.Exists("error-pages"))
+                    matches = Directory.GetFiles("error-pages", "*.html").Select(Path.GetFileNameWithoutExtension).Where(f => f!.StartsWith(currentToken)).ToList()!;
             }
         }
 
@@ -103,9 +131,20 @@ public class ShellService
         {
             Console.WriteLine();
             AnsiConsole.MarkupLine("[grey]" + string.Join("  ", matches) + "[/]");
-            string promptPrefix = mode switch { "config" => "HttpROS(config)# ", "route-config" => $"HttpROS(config-route-{activeRoute?.Domain})# ", _ => "HttpROS> " };
+            string promptPrefix = GetPromptPrefix(mode, activeRoute);
             Console.Write(promptPrefix + sb.ToString());
         }
+    }
+
+    private string GetPromptPrefix(string mode, RouteConfig? activeRoute)
+    {
+        return mode switch { 
+            "config" => "HttpROS(config)# ", 
+            "route-config" => $"HttpROS(config-route-{activeRoute?.Domain})# ", 
+            "balancer-config" => $"HttpROS(config-route-{activeRoute?.Domain}-balancer)# ",
+            "error-page-config" => $"HttpROS(config-route-{activeRoute?.Domain}-error-page)# ",
+            _ => "HttpROS> " 
+        };
     }
 
     public List<string> GetAvailableCommands(string mode)
@@ -113,8 +152,10 @@ public class ShellService
         return mode switch
         {
             "view" => new List<string> { "show", "configure", "exit", "quit", "clear", "status" },
-            "config" => new List<string> { "proxy", "static", "redirect", "backup", "restore", "exit", "quit", "return", "clear", "show" },
-            "route-config" => new List<string> { "target", "upstream", "ssl", "gzip", "auth", "whitelist", "blacklist", "websockets", "cors", "rate-limit", "error-page", "save", "exit", "quit", "clear", "show", "ip-filter" },
+            "config" => new List<string> { "proxy", "static", "redirect", "backup", "restore", "exit", "quit", "return", "clear", "show", "top" },
+            "route-config" => new List<string> { "target", "balancer", "upstream", "ssl", "gzip", "auth", "whitelist", "blacklist", "websockets", "cors", "rate-limit", "error-page", "save", "exit", "quit", "clear", "show", "ip-filter", "top" },
+            "balancer-config" => new List<string> { "method", "sticky", "upstream", "exit", "quit", "return", "clear", "show", "no", "top" },
+            "error-page-config" => new List<string> { "404", "500", "502", "503", "504", "exit", "quit", "return", "clear", "show", "no", "top" },
             _ => new List<string>()
         };
     }

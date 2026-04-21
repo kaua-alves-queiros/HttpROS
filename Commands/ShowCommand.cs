@@ -62,6 +62,7 @@ public class ShowCommand : ICommand
     {
         Console.WriteLine($"{route.Type} {route.Domain}");
         if (!string.IsNullOrEmpty(route.Target)) Console.WriteLine($" target {route.Target}");
+        else Console.WriteLine(" no target");
         
         if (route.Features.Ssl.Enabled) 
         {
@@ -70,29 +71,64 @@ public class ShowCommand : ICommand
         }
         else Console.WriteLine(" no ssl");
 
-        if (route.Features.Gzip) Console.WriteLine(" gzip");
-        else Console.WriteLine(" no gzip");
-
-        if (route.Features.Websockets) Console.WriteLine(" websockets");
-        if (route.Features.Cors) Console.WriteLine(" cors");
+        Console.WriteLine(route.Features.Gzip ? " gzip" : " no gzip");
+        Console.WriteLine(route.Features.Websockets ? " websockets" : " no websockets");
+        Console.WriteLine(route.Features.Cors ? " cors" : " no cors");
 
         if (route.Features.BasicAuth != null)
             Console.WriteLine($" auth {route.Features.BasicAuth.User} {route.Features.BasicAuth.Pass}");
+        else
+            Console.WriteLine(" no auth");
 
-        if (route.Features.IpFilter.Mode != "blacklist")
-            Console.WriteLine($" ip-filter mode {route.Features.IpFilter.Mode}");
-
+        Console.WriteLine($" ip-filter mode {route.Features.IpFilter.Mode}");
         foreach (var ip in route.Features.IpFilter.Whitelist) Console.WriteLine($" whitelist {ip}");
         foreach (var ip in route.Features.IpFilter.Blacklist) Console.WriteLine($" blacklist {ip}");
-        foreach (var up in route.Upstreams) Console.WriteLine($" upstream {up}");
+        
+        ShowBalancerConfig(route, 1);
 
         if (!string.IsNullOrEmpty(route.Features.RateLimit))
             Console.WriteLine($" rate-limit {route.Features.RateLimit}");
+        else
+            Console.WriteLine(" no rate-limit");
 
-        foreach (var page in route.Features.CustomErrorPages)
-            Console.WriteLine($" error-page {page.Key} {page.Value}");
+        ShowErrorPagesConfig(route, 1);
 
         Console.WriteLine("!");
+    }
+
+    public void ShowBalancerConfig(RouteConfig route, int indent = 0)
+    {
+        string space = new string(' ', indent);
+        bool hasSettings = route.Balancer.Upstreams.Count > 0 || route.Balancer.Sticky || route.Balancer.Method != "round-robin";
+        
+        if (hasSettings)
+        {
+            Console.WriteLine($"{space}balancer");
+            Console.WriteLine($"{space} method {route.Balancer.Method}");
+            Console.WriteLine($"{space} sticky {(route.Balancer.Sticky ? "enable" : "disable")}");
+            foreach (var up in route.Balancer.Upstreams) Console.WriteLine($"{space} upstream {up}");
+            Console.WriteLine($"{space}!");
+        }
+        else
+        {
+            Console.WriteLine($"{space}no balancer");
+        }
+    }
+
+    public void ShowErrorPagesConfig(RouteConfig route, int indent = 0)
+    {
+        string space = new string(' ', indent);
+        if (route.Features.CustomErrorPages.Count > 0)
+        {
+            Console.WriteLine($"{space}error-pages");
+            foreach (var page in route.Features.CustomErrorPages)
+                Console.WriteLine($"{space} {page.Key} {page.Value}");
+            Console.WriteLine($"{space}!");
+        }
+        else
+        {
+            Console.WriteLine($"{space}no error-pages");
+        }
     }
 
     private void ShowHuaweiStyle(string type, string domain)
@@ -107,12 +143,36 @@ public class ShowCommand : ICommand
         string typeName = char.ToUpper(type[0]) + type.Substring(1);
         Console.WriteLine($"{typeName}-Route {route.Domain} current state : UP");
         Console.WriteLine($"Line protocol current state : UP (Nginx: Running)");
+        
+        if (!string.IsNullOrEmpty(route.Target) && route.Balancer.Upstreams.Count > 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]WARNING: Target e Balancer configurados. O Balancer terá prioridade.[/]");
+        }
+
         Console.WriteLine("Features:");
         Console.WriteLine($"  SSL state : {(route.Features.Ssl.Enabled ? "ENABLED" : "DISABLED")}");
         Console.WriteLine($"  Gzip state : {(route.Features.Gzip ? "ENABLED" : "DISABLED")}");
         Console.WriteLine($"  Authentication : {(route.Features.BasicAuth != null ? "ENABLED" : "DISABLED")}");
+        
+        if (route.Balancer.Upstreams.Count > 0 || route.Balancer.Sticky || route.Balancer.Method != "round-robin")
+        {
+            Console.WriteLine("Load Balancing:");
+            Console.WriteLine($"  Method: {route.Balancer.Method}");
+            Console.WriteLine($"  Sticky persistence: {(route.Balancer.Sticky ? "ENABLED" : "DISABLED")}");
+            Console.WriteLine($"  Upstreams count : {route.Balancer.Upstreams.Count}");
+            foreach(var up in route.Balancer.Upstreams) Console.WriteLine($"    - {up}");
+        }
+
         Console.WriteLine("Traffic Control:");
         Console.WriteLine($"  Rate-limit : {(!string.IsNullOrEmpty(route.Features.RateLimit) ? route.Features.RateLimit : "DISABLED")}");
+        
+        if (route.Features.CustomErrorPages.Count > 0)
+        {
+            Console.WriteLine("Error Pages:");
+            foreach (var page in route.Features.CustomErrorPages)
+                Console.WriteLine($"  Code {page.Key} -> {page.Value}");
+        }
+
         Console.WriteLine("    Last 300 seconds input rate 0 bits/sec, 0 packets/sec");
         Console.WriteLine("    Last 300 seconds output rate 0 bits/sec, 0 packets/sec");
     }
