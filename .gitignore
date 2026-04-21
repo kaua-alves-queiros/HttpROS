@@ -8,10 +8,17 @@
 *.sln.docstates
 .DS_Store
 
-# State folders (Database)
+# State folders (Network OS Data)
 proxy/
 static/
 redirect/
+aaa/
+backups/
 
-# Certificates
+# Runtime and configuration
 certs/
+error-pages/
+
+# OS specific
+.DS_Store
+Thumbs.db
