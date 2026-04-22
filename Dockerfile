@@ -2,17 +2,17 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
 WORKDIR /src
 COPY . .
-RUN dotnet publish -c Release -o /app
+# Explicitly publish the main project
+RUN dotnet publish src/HttpROS.HttpROS/HttpROS.HttpROS.csproj -c Release -o /app
 
 # Final stage
 FROM mcr.microsoft.com/dotnet/runtime:10.0-preview AS runtime
 WORKDIR /app
 COPY --from=build /app .
 
-# Install dependencies: SSH server, Nginx (for HttpROS to manage), and sudo
+# Install dependencies: SSH server and sudo
 RUN apt-get update && apt-get install -y \
     openssh-server \
-    nginx \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
@@ -27,11 +27,12 @@ RUN useradd -m -s /bin/bash rosadmin && \
     adduser rosadmin sudo
 
 # Create a symlink so typing 'http-ros' runs the application
-RUN echo '#!/bin/bash\ndotnet /app/HttpROS.dll "$@"' > /usr/bin/http-ros && \
+# Note: The DLL name matches the new project name
+RUN echo '#!/bin/bash\ndotnet /app/HttpROS.HttpROS.dll "$@"' > /usr/bin/http-ros && \
     chmod +x /usr/bin/http-ros
 
-# Expose SSH port and standard Nginx ports
+# Expose SSH port and standard web ports
 EXPOSE 50022 80 443
 
-# Start SSH and Nginx (keeping the container running)
-CMD service nginx start && /usr/sbin/sshd -D
+# Start SSH
+CMD /usr/sbin/sshd -D

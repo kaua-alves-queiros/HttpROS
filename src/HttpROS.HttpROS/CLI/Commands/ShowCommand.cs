@@ -1,9 +1,9 @@
 using Spectre.Console;
-using HttpROS.Services;
-using HttpROS.Commands.Base;
+using HttpROS.Data;
+using HttpROS.CLI.Base;
 using HttpROS.Models;
 
-namespace HttpROS.Commands;
+namespace HttpROS.CLI.Commands;
 
 public class ShowCommand : ICommand
 {
@@ -45,7 +45,7 @@ public class ShowCommand : ICommand
                 break;
 
             case "status":
-                Console.WriteLine("System Health: OK | Nginx Process: Running | HttpROS: Active");
+                Console.WriteLine("System Health: OK | Proxy Engine: Native .NET | HttpROS: Active");
                 break;
 
             case "version":
@@ -142,7 +142,7 @@ public class ShowCommand : ICommand
 
         string typeName = char.ToUpper(type[0]) + type.Substring(1);
         Console.WriteLine($"{typeName}-Route {route.Domain} current state : UP");
-        Console.WriteLine($"Line protocol current state : UP (Nginx: Running)");
+        Console.WriteLine($"Line protocol current state : UP (Native Proxy)");
         
         if (!string.IsNullOrEmpty(route.Target) && route.Balancer.Upstreams.Count > 0)
         {

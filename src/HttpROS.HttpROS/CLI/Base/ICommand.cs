@@ -1,4 +1,4 @@
-namespace HttpROS.Commands.Base;
+namespace HttpROS.CLI.Base;
 
 public interface ICommand
 {

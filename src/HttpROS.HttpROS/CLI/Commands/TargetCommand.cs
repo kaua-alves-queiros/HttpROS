@@ -1,8 +1,8 @@
 using HttpROS.Models;
-using HttpROS.Services;
+using HttpROS.Data;
 using Spectre.Console;
 
-namespace HttpROS.Commands;
+namespace HttpROS.CLI.Commands;
 
 public class TargetCommand
 {

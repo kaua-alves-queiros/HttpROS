@@ -7,12 +7,10 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # Persist configuration and state
-      - ./proxy:/app/proxy
-      - ./static:/app/static
-      - ./redirect:/app/redirect
-      - ./error-pages:/app/error-pages
-      - ./certs:/app/certs
+      # Unified Data Persistence
+      - ./Data:/app/Data
+    environment:
+      - Settings__DataPath=Data
     restart: unless-stopped
-    stdin_open: true # For interactive shells if needed
+    stdin_open: true
     tty: true

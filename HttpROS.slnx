@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HttpROS.HttpROS/HttpROS.HttpROS.csproj" />
+    <Project Path="src/HttpROS.Test/HttpROS.Test.csproj" />
+  </Folder>
+</Solution>
