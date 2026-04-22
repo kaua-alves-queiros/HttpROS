@@ -10,6 +10,8 @@ public class StorageService
     private readonly string[] _types = { "proxy", "static", "redirect" };
     private readonly string _dataRoot;
 
+    public string GetDataRoot() => _dataRoot;
+
     public StorageService(IConfiguration configuration)
     {
         _dataRoot = configuration["Settings:DataPath"] ?? "Data";

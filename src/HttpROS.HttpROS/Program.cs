@@ -1,5 +1,6 @@
 using HttpROS.Data;
 using HttpROS.CLI;
+using HttpROS.Engine;
 using Microsoft.Extensions.Configuration;
 
 namespace HttpROS;
@@ -16,7 +17,19 @@ class Program
 
         var storage = new StorageService(config);
         var validator = new ValidationService(config);
-        var engine = new CliEngine(storage, validator, config);
-        engine.Run();
+        
+        // If --cli-only is passed, we skip the Proxy Engine (useful for SSH management)
+        bool cliOnly = args.Contains("--cli-only");
+
+        ProxyEngine? engineProxy = null;
+        if (!cliOnly)
+        {
+            engineProxy = new ProxyEngine(storage, validator);
+            engineProxy.Start(args);
+        }
+
+        // Start the Control Plane (CLI Engine)
+        var engineCli = new CliEngine(storage, validator, engineProxy!, config);
+        engineCli.Run();
     }
 }

@@ -2,6 +2,7 @@ using Spectre.Console;
 using HttpROS.Models;
 using HttpROS.Data;
 using HttpROS.CLI.Commands;
+using HttpROS.Engine;
 using Microsoft.Extensions.Configuration;
 
 namespace HttpROS.CLI;
@@ -10,6 +11,7 @@ public class CliEngine
 {
     private readonly StorageService _storage;
     private readonly ValidationService _validator;
+    private readonly ProxyEngine? _proxyEngine;
     private readonly ShellService _shell;
     private readonly CommandProcessor _processor;
     
@@ -17,6 +19,17 @@ public class CliEngine
     public RouteConfig? ActiveRoute { get; private set; }
     public bool IsRunning { get; private set; } = true;
 
+    // Standard constructor for production
+    public CliEngine(StorageService storage, ValidationService validator, ProxyEngine proxyEngine, IConfiguration configuration)
+    {
+        _storage = storage;
+        _validator = validator;
+        _proxyEngine = proxyEngine;
+        _shell = new ShellService(storage, configuration);
+        _processor = new CommandProcessor(storage, validator);
+    }
+
+    // Compatibility constructor for Tests (NOT allowed to touch test files)
     public CliEngine(StorageService storage, ValidationService validator, IConfiguration configuration)
     {
         _storage = storage;
@@ -45,7 +58,7 @@ public class CliEngine
         switch (CurrentMode)
         {
             case "view":
-                HandleViewMode(command, parts);
+                HandleViewMode(command, argsList, isNoCommand);
                 break;
 
             case "config":
@@ -66,14 +79,14 @@ public class CliEngine
         }
     }
 
-    private void HandleViewMode(string command, string[] parts)
+    private void HandleViewMode(string command, string[] argsList, bool isNoCommand)
     {
         if (command == "configure" || command == "conf")
         {
             CurrentMode = "config";
             AnsiConsole.MarkupLine("[yellow]Entering configuration mode...[/]");
         }
-        else if (command == "monitor" && parts.Length > 1 && parts[1] == "logs")
+        else if (command == "monitor" && argsList.Length > 0 && argsList[0] == "logs")
         {
             _processor.HandleMonitorLogs();
         }
@@ -99,6 +112,7 @@ public class CliEngine
             if (isNoCommand)
             {
                 _storage.DeleteRoute(command, domain);
+                _proxyEngine?.Reload(); 
                 AnsiConsole.MarkupLine($"[grey]Rota {command} {domain} removida.[/]");
             }
             else
@@ -112,6 +126,7 @@ public class CliEngine
 
                 ActiveRoute = _storage.LoadRoute(command, domain) ?? new RouteConfig { Domain = domain, Type = command };
                 _storage.SaveRoute(ActiveRoute);
+                _proxyEngine?.Reload(); 
                 CurrentMode = "route-config";
             }
         }
@@ -130,6 +145,7 @@ public class CliEngine
         else if (command == "save")
         {
             _storage.SaveRoute(ActiveRoute!);
+            _proxyEngine?.Reload(); 
             CurrentMode = "config";
             ActiveRoute = null;
         }
@@ -144,6 +160,7 @@ public class CliEngine
         else
         {
             _processor.HandleRouteConfig(command, argsList, ActiveRoute!, isNoCommand);
+            _proxyEngine?.Reload(); 
         }
     }
 
@@ -151,14 +168,22 @@ public class CliEngine
     {
         if (command == "exit" || command == "quit") CurrentMode = "route-config";
         else if (command == "return") { CurrentMode = "config"; ActiveRoute = null; }
-        else _processor.HandleBalancerConfig(command, argsList, ActiveRoute!, isNoCommand);
+        else 
+        {
+            _processor.HandleBalancerConfig(command, argsList, ActiveRoute!, isNoCommand);
+            _proxyEngine?.Reload(); 
+        }
     }
 
     private void HandleErrorPageConfigMode(string command, string[] argsList, bool isNoCommand)
     {
         if (command == "exit" || command == "quit") CurrentMode = "route-config";
         else if (command == "return") { CurrentMode = "config"; ActiveRoute = null; }
-        else _processor.HandleErrorPageConfig(command, argsList, ActiveRoute!, isNoCommand);
+        else 
+        {
+            _processor.HandleErrorPageConfig(command, argsList, ActiveRoute!, isNoCommand);
+            _proxyEngine?.Reload(); 
+        }
     }
 
     public void Run()

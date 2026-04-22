@@ -31,6 +31,7 @@ public class HelpCommand
         else if (mode == "route-config")
         {
             rows.Add(("target [[v]]", "Set main target"));
+            rows.Add(("code [[c]]", "Set redirect code (301, 302, 307, 308)"));
             rows.Add(("balancer [[m/u]]", "Configure load balancer"));
             rows.Add(("ssl [[e/d]]", "Toggle SSL"));
             rows.Add(("gzip [[e/d]]", "Toggle Gzip"));
@@ -125,6 +126,14 @@ public class HelpCommand
         {
              Console.WriteLine("  <cr>  Enter configuration mode");
         }
+        else if (cmd == "no" && mode == "config")
+        {
+            var table = new Table().Border(TableBorder.None).HideHeaders().AddColumns("Cmd", "Desc");
+            table.AddRow("proxy <domain>", "Remove proxy route")
+                 .AddRow("static <domain>", "Remove static route")
+                 .AddRow("redirect <domain>", "Remove redirect route");
+            AnsiConsole.Write(table);
+        }
         else if (cmd == "no" && mode == "route-config")
         {
             if (parts.Length > 1 && parts[1] == "balancer")
@@ -170,6 +179,7 @@ public class HelpCommand
             switch (cmd)
             {
                 case "target": Console.WriteLine("  <v>  Target IP:Port or Path"); break;
+                case "code": Console.WriteLine("  <c>  301 (Perm), 302 (Temp), 307 (Temp Redirect), 308 (Perm Redirect)"); break;
                 case "ssl": 
                     Console.WriteLine("  lets-encrypt      Automatic certificate via Let's Encrypt");
                     Console.WriteLine("  manual <name>     Use local certificate from /Data/certs/manual/");

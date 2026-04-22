@@ -74,6 +74,10 @@ public class ShellService
                 string path = Path.Combine(_dataRoot, firstPart);
                 matches = Directory.Exists(path) ? Directory.GetFiles(path, "*.json").Select(Path.GetFileNameWithoutExtension).Where(d => d!.StartsWith(currentToken)).ToList()! : new List<string>();
             }
+            else if (mode == "config" && firstPart == "no")
+            {
+                matches = new List<string> { "proxy", "static", "redirect" }.Where(m => m.StartsWith(currentToken)).ToList();
+            }
             else if (mode == "config" && firstPart == "restore")
             {
                 matches = _storage.GetBackups().Where(b => b.StartsWith(currentToken)).ToList();
@@ -107,6 +111,11 @@ public class ShellService
             string secondPart = parts[1].ToLower();
             
             if (firstPart == "show" && (secondPart == "proxy" || secondPart == "static" || secondPart == "redirect"))
+            {
+                string path = Path.Combine(_dataRoot, secondPart);
+                matches = Directory.Exists(path) ? Directory.GetFiles(path, "*.json").Select(Path.GetFileNameWithoutExtension).Where(d => d!.StartsWith(currentToken)).ToList()! : new List<string>();
+            }
+            else if (mode == "config" && firstPart == "no" && (secondPart == "proxy" || secondPart == "static" || secondPart == "redirect"))
             {
                 string path = Path.Combine(_dataRoot, secondPart);
                 matches = Directory.Exists(path) ? Directory.GetFiles(path, "*.json").Select(Path.GetFileNameWithoutExtension).Where(d => d!.StartsWith(currentToken)).ToList()! : new List<string>();
@@ -178,8 +187,8 @@ public class ShellService
         return mode switch
         {
             "view" => new List<string> { "show", "configure", "exit", "quit", "clear", "status", "monitor" },
-            "config" => new List<string> { "proxy", "static", "redirect", "backup", "restore", "exit", "quit", "return", "clear", "show", "top" },
-            "route-config" => new List<string> { "target", "balancer", "ssl", "gzip", "auth", "ip", "websockets", "cors", "rate-limit", "error-page", "save", "exit", "quit", "clear", "show", "top" },
+            "config" => new List<string> { "proxy", "static", "redirect", "backup", "restore", "exit", "quit", "return", "clear", "show", "top", "no" },
+            "route-config" => new List<string> { "target", "code", "balancer", "ssl", "gzip", "auth", "ip", "websockets", "cors", "rate-limit", "error-page", "save", "exit", "quit", "clear", "show", "top" },
             "balancer-config" => new List<string> { "method", "sticky", "upstream", "health-check", "exit", "quit", "return", "clear", "show", "no", "top" },
             "error-page-config" => new List<string> { "404", "500", "502", "503", "504", "exit", "quit", "return", "clear", "show", "no", "top" },
             _ => new List<string>()

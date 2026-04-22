@@ -80,6 +80,25 @@ public class CommandProcessor
                     _targetCommand.Execute(args, activeRoute);
                 }
                 break;
+            case "code":
+                {
+                    if (!activeRoute.Type.Equals("redirect", StringComparison.OrdinalIgnoreCase))
+                    {
+                        AnsiConsole.MarkupLine("[red]Error: O comando 'code' só é válido para rotas do tipo redirect.[/]");
+                        return;
+                    }
+                    if (args.Length >= 1 && int.TryParse(args[0], out int c))
+                    {
+                        if (new[] { 301, 302, 307, 308 }.Contains(c))
+                        {
+                            activeRoute.RedirectCode = c;
+                            _storage.SaveRoute(activeRoute);
+                            AnsiConsole.MarkupLine($"[green]Código de redirecionamento definido para {c}.[/]");
+                        }
+                        else AnsiConsole.MarkupLine("[red]Error: Código inválido. Use 301, 302, 307 ou 308.[/]");
+                    }
+                    break;
+                }
             case "upstream":
                 if (isNo && args.Length >= 1) activeRoute.Balancer.Upstreams.Remove(args[0]);
                 else if (!isNo && args.Length >= 1)
@@ -138,20 +157,22 @@ public class CommandProcessor
                 _storage.SaveRoute(activeRoute);
                 break;
             case "error-page":
-                if (isNo && args.Length >= 1) activeRoute.Features.CustomErrorPages.Remove(args[0]);
-                else if (!isNo && args.Length >= 2) 
-                { 
-                    string code = args[0], page = args[1];
-                    if (!_validator.ErrorPageExists(page))
-                    {
-                        AnsiConsole.MarkupLine($"[red]Error: Arquivo de página de erro '{page}' não encontrado em Data/error-pages/.[/]");
-                        return;
+                {
+                    if (isNo && args.Length >= 1) activeRoute.Features.CustomErrorPages.Remove(args[0]);
+                    else if (!isNo && args.Length >= 2) 
+                    { 
+                        string code = args[0], page = args[1];
+                        if (!_validator.ErrorPageExists(page))
+                        {
+                            AnsiConsole.MarkupLine($"[red]Error: Arquivo de página de erro '{page}' não encontrado em Data/error-pages/.[/]");
+                            return;
+                        }
+                        if (!page.EndsWith(".html")) page += ".html";
+                        activeRoute.Features.CustomErrorPages[code] = page; 
                     }
-                    if (!page.EndsWith(".html")) page += ".html";
-                    activeRoute.Features.CustomErrorPages[code] = page; 
+                    _storage.SaveRoute(activeRoute);
+                    break;
                 }
-                _storage.SaveRoute(activeRoute);
-                break;
         }
     }
 

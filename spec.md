@@ -31,6 +31,16 @@ HttpROS utilizes a declarative, file-based state model.
   - `Data/error-pages/`: Diagnostic assets.
 - **Atomic Operations**: All state changes are committed via atomic file writes to prevent configuration corruption.
 
+### 2.2 Route Lifecycle & Deletion
+- **Creation**: Commands `proxy`, `static`, or `redirect` followed by a domain.
+- **Modification**: Entering route-config mode for an existing domain.
+- **Deletion**: The `no` prefix applied to route commands (e.g., `no proxy example.com`) will permanently remove the configuration file and trigger a Data Plane reload.
+
+### 2.3 Target Format Standards
+- **Proxy/Static**: Supports `IP`, `IP:Port`, or `Hostname`. If the protocol is omitted, `http://` is assumed as the backend scheme.
+- **Redirect**: Supports full `URLs` (e.g., `https://google.com`). 
+  - **Custom Codes**: Supports `code <301|302|307|308>` (Default: 302). This status code is returned with the `Location` header.
+
 ---
 
 ## 3. Comprehensive Feature Matrix (Roadmap & Status)
@@ -62,6 +72,7 @@ HttpROS maintains a high-integrity codebase with a target of maximum CLI test co
 - **Persistence Integrity**: Validation of `StorageService` file operations and data consistency.
 - **Validation Logic**: Unit testing of `ValidationService` against RFC compliance and asset existence.
 - **Comprehensive Command Coverage**: Every command flag (Gzip, Websockets, CORS, Auth, etc.) and its `no` variant is verified.
+- **UX Interaction Standards**: All commands, including those using the `no` prefix, must support contextual help (`?`) and Tab-Completion for discovery.
 
 ### 4.2 Coverage Goals
 - **Control Plane**: 100% coverage of navigation and command dispatching logic.

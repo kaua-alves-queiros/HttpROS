@@ -13,6 +13,9 @@ public class RouteConfig
     [JsonPropertyName("target")]
     public string Target { get; set; } = string.Empty;
 
+    [JsonPropertyName("redirectCode")]
+    public int RedirectCode { get; set; } = 302;
+
     [JsonPropertyName("balancer")]
     public BalancerConfig Balancer { get; set; } = new();
 

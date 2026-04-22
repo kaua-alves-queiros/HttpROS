@@ -25,6 +25,9 @@ public class ValidationService
     {
         if (string.IsNullOrWhiteSpace(input)) return false;
         
+        // Allow URLs (http:// or https://)
+        if (input.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || input.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return true;
+
         // Check if it's just an IP
         if (IPAddress.TryParse(input, out _)) return true;
 
@@ -35,7 +38,9 @@ public class ValidationService
             return port > 0 && port <= 65535;
         }
 
-        return false;
+        // Allow Hostnames
+        var hostRegex = new Regex(@"^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])(\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]))*$");
+        return hostRegex.IsMatch(input);
     }
 
     public bool IsValidRateLimit(string rate)
