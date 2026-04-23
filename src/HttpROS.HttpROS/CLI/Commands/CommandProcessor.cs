@@ -21,6 +21,16 @@ public class CommandProcessor
         _sslCommand = new SslCommand(storage);
     }
 
+    private bool EnsureProxyOnly(string command, RouteConfig route)
+    {
+        if (route.Type.Equals("redirect", StringComparison.OrdinalIgnoreCase))
+        {
+            AnsiConsole.MarkupLine($"[red]Error: Command '{command}' is only available for proxy/static routes.[/]");
+            return false;
+        }
+        return true;
+    }
+
     public void HandleShowCommand(string[] parts, string mode, RouteConfig? activeRoute = null)
     {
         if (parts.Length == 1 && activeRoute != null)
@@ -99,7 +109,11 @@ public class CommandProcessor
                     }
                     break;
                 }
+            case "balancer":
+                if (!EnsureProxyOnly("balancer", activeRoute)) return;
+                break;
             case "upstream":
+                if (!EnsureProxyOnly("upstream", activeRoute)) return;
                 if (isNo && args.Length >= 1) activeRoute.Balancer.Upstreams.Remove(args[0]);
                 else if (!isNo && args.Length >= 1)
                 {
@@ -124,10 +138,12 @@ public class CommandProcessor
                 _sslCommand.Execute(args, activeRoute, isNo);
                 break;
             case "gzip":
+                if (!EnsureProxyOnly("gzip", activeRoute)) return;
                 activeRoute.Features.Gzip = !isNo;
                 _storage.SaveRoute(activeRoute);
                 break;
             case "websockets":
+                if (!EnsureProxyOnly("websockets", activeRoute)) return;
                 activeRoute.Features.Websockets = !isNo;
                 _storage.SaveRoute(activeRoute);
                 break;
@@ -157,6 +173,7 @@ public class CommandProcessor
                 _storage.SaveRoute(activeRoute);
                 break;
             case "error-page":
+                if (!EnsureProxyOnly("error-page", activeRoute)) return;
                 {
                     if (isNo && args.Length >= 1) activeRoute.Features.CustomErrorPages.Remove(args[0]);
                     else if (!isNo && args.Length >= 2) 
@@ -210,6 +227,7 @@ public class CommandProcessor
 
     public void HandleBalancerConfig(string command, string[] args, RouteConfig activeRoute, bool isNo)
     {
+        if (!EnsureProxyOnly("balancer-config", activeRoute)) return;
         switch (command)
         {
             case "method":
@@ -258,6 +276,7 @@ public class CommandProcessor
 
     public void HandleErrorPageConfig(string command, string[] args, RouteConfig activeRoute, bool isNo)
     {
+        if (!EnsureProxyOnly("error-page-config", activeRoute)) return;
         if (isNo)
         {
             activeRoute.Features.CustomErrorPages.Remove(command);

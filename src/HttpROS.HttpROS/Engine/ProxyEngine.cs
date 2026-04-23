@@ -1,4 +1,5 @@
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Forwarder;
 using HttpROS.Data;
 using HttpROS.Models;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,7 @@ using System.Net;
 using System.Collections.Concurrent;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
+using Microsoft.Extensions.FileProviders;
 
 namespace HttpROS.Engine;
 
@@ -44,12 +46,15 @@ public class ProxyEngine
                     httpsOptions.ServerCertificateSelector = (connectionContext, name) =>
                     {
                         if (string.IsNullOrEmpty(name)) return null;
-                        var route = _storage.GetAllRoutes().FirstOrDefault(r => r.Domain.Equals(name, StringComparison.OrdinalIgnoreCase));
+                        
+                        var allRoutes = _storage.GetAllRoutes();
+                        var route = FindBestMatch(name, allRoutes);
                         
                         if (route == null || route.Features.Ssl == null || !route.Features.Ssl.Enabled) return null;
 
                         string certFolder = route.Features.Ssl.Provider == "manual" ? "manual" : "lets-encrypt";
-                        string certPath = Path.Combine(_storage.GetDataRoot(), "certs", certFolder, $"{name}.pfx");
+                        string certName = route.Domain.StartsWith("*.") ? $"wildcard_{route.Domain.Substring(2)}" : name;
+                        string certPath = Path.Combine(_storage.GetDataRoot(), "certs", certFolder, $"{certName}.pfx");
                         
                         if (File.Exists(certPath))
                         {
@@ -86,27 +91,36 @@ public class ProxyEngine
         app.Use(async (context, next) =>
         {
             var host = context.Request.Host.Host;
-            var route = _storage.GetAllRoutes().FirstOrDefault(r => r.Domain.Equals(host, StringComparison.OrdinalIgnoreCase));
+            var path = context.Request.Path;
+            
+            Console.WriteLine($"[TRAFFIC] {DateTime.Now:HH:mm:ss} | Host: {host} | Path: {path}");
+
+            var allRoutes = _storage.GetAllRoutes();
+            var route = FindBestMatch(host, allRoutes);
             
             if (route != null)
             {
-                // 1. IP Filter
+                if (route.Domain.StartsWith("*.")) Console.WriteLine($"[WILDCARD] Matched {host} against {route.Domain}");
+
                 if (!HandleIpFilter(context, route)) return;
-
-                // 2. Auth
                 if (!await HandleBasicAuth(context, route)) return;
-
-                // 3. Rate Limit
                 if (!HandleRateLimit(context, route)) return;
 
-                // 4. Handle REDIRECT directly in middleware
+                if (route.Features.Cors)
+                {
+                    context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+                    context.Response.Headers.Append("Access-Control-Allow-Methods", "*");
+                    context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
+                }
+
+                // 1. Handle REDIRECT
                 if (route.Type.Equals("redirect", StringComparison.OrdinalIgnoreCase))
                 {
                     var target = route.Target;
                     if (!target.StartsWith("http")) target = $"http://{target}";
+                    Console.WriteLine($"[REDIRECT] Sending {host} to {target} (Code: {route.RedirectCode})");
                     context.Response.Redirect(target, permanent: route.RedirectCode == 301 || route.RedirectCode == 308);
                     
-                    // If it's a specific code like 307 or 302 (non-permanent), we set it explicitly
                     if (route.RedirectCode != 301 && route.RedirectCode != 308)
                     {
                         context.Response.StatusCode = route.RedirectCode;
@@ -114,17 +128,34 @@ public class ProxyEngine
                     return;
                 }
 
-                // 5. If it's proxy/static, let YARP handle it
+                // 2. Handle STATIC Hosting
+                if (route.Type.Equals("static", StringComparison.OrdinalIgnoreCase))
+                {
+                    var rootPath = Path.IsPathRooted(route.Target) ? route.Target : Path.Combine(Directory.GetCurrentDirectory(), route.Target);
+                    var filePath = Path.Combine(rootPath, path.Value?.TrimStart('/') ?? "");
+                    
+                    if (string.IsNullOrEmpty(path.Value) || path.Value == "/") filePath = Path.Combine(rootPath, "index.html");
+
+                    if (File.Exists(filePath))
+                    {
+                        var contentType = GetContentType(filePath);
+                        context.Response.ContentType = contentType;
+                        await context.Response.SendFileAsync(filePath);
+                        return;
+                    }
+                }
+
+                // 3. Handle PROXY (YARP)
                 await next();
 
-                // 6. Custom Error Pages
+                // 4. Custom Error Pages
                 if (route.Features.CustomErrorPages.ContainsKey(context.Response.StatusCode.ToString()))
                 {
                     var page = route.Features.CustomErrorPages[context.Response.StatusCode.ToString()];
-                    var filePath = Path.Combine(_storage.GetDataRoot(), "error-pages", page);
-                    if (File.Exists(filePath))
+                    var errPath = Path.Combine(_storage.GetDataRoot(), "error-pages", page);
+                    if (File.Exists(errPath))
                     {
-                        var content = File.ReadAllText(filePath);
+                        var content = File.ReadAllText(errPath);
                         context.Response.ContentType = "text/html";
                         await context.Response.WriteAsync(content);
                     }
@@ -144,11 +175,41 @@ public class ProxyEngine
         Task.Run(() => app.Run());
     }
 
+    private string GetContentType(string path)
+    {
+        var ext = Path.GetExtension(path).ToLower();
+        return ext switch
+        {
+            ".html" => "text/html",
+            ".css" => "text/css",
+            ".js" => "application/javascript",
+            ".json" => "application/json",
+            ".png" => "image/png",
+            ".jpg" => "image/jpeg",
+            ".svg" => "image/svg+xml",
+            _ => "application/octet-stream"
+        };
+    }
+
+    private HttpROS.Models.RouteConfig? FindBestMatch(string host, List<HttpROS.Models.RouteConfig> routes)
+    {
+        var exact = routes.FirstOrDefault(r => r.Domain.Equals(host, StringComparison.OrdinalIgnoreCase));
+        if (exact != null) return exact;
+
+        return routes.FirstOrDefault(r => 
+        {
+            if (!r.Domain.StartsWith("*.")) return false;
+            var suffix = r.Domain.Substring(2);
+            return host.EndsWith(suffix, StringComparison.OrdinalIgnoreCase) && host.Length > suffix.Length;
+        });
+    }
+
     public void Reload()
     {
         if (_configProvider == null) return;
         var (routes, clusters) = MapConfigs();
         _configProvider.Update(routes, clusters);
+        Console.WriteLine($"[ENGINE] Data Plane reloaded successfully at {DateTime.Now:HH:mm:ss}");
     }
 
     private readonly ConcurrentDictionary<string, (int count, DateTime reset)> _rateStats = new();
@@ -244,15 +305,14 @@ public class ProxyEngine
 
         foreach (var r in allRoutes)
         {
-            // Note: We only register proxy/static routes in YARP. 
-            // Redirects are handled in our middleware for speed/reliability.
             if (r.Type.Equals("redirect", StringComparison.OrdinalIgnoreCase)) continue;
+            if (r.Type.Equals("static", StringComparison.OrdinalIgnoreCase)) continue; // Static handled by middleware
 
-            var clusterId = $"cluster-{r.Domain}";
+            var clusterId = $"cluster-{r.Domain.Replace("*", "wildcard")}";
 
             var route = new Yarp.ReverseProxy.Configuration.RouteConfig
             {
-                RouteId = $"route-{r.Domain}",
+                RouteId = $"route-{r.Domain.Replace("*", "wildcard")}",
                 ClusterId = clusterId,
                 Match = new RouteMatch { Hosts = new[] { r.Domain } }
             };
@@ -278,7 +338,11 @@ public class ProxyEngine
                 Destinations = destinations,
                 SessionAffinity = r.Balancer.Sticky ? new SessionAffinityConfig { Enabled = true, Policy = "Cookie", AffinityKeyName = ".HttpROS.Affinity" } : null,
                 LoadBalancingPolicy = MapPolicy(r.Balancer.Method),
-                HealthCheck = MapHealthCheck(r.Balancer.HealthCheck)
+                HealthCheck = MapHealthCheck(r.Balancer.HealthCheck),
+                HttpRequest = new ForwarderRequestConfig
+                {
+                    ActivityTimeout = TimeSpan.FromSeconds(30)
+                }
             });
         }
 

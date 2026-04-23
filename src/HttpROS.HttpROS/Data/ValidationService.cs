@@ -16,8 +16,8 @@ public class ValidationService
     public bool IsValidDomain(string domain)
     {
         if (string.IsNullOrWhiteSpace(domain)) return false;
-        // Simple RFC 1035 check
-        var regex = new Regex(@"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$");
+        // Support for wildcards like *.example.com
+        var regex = new Regex(@"^(\*\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$");
         return regex.IsMatch(domain.ToLower());
     }
 

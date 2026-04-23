@@ -40,7 +40,8 @@ public class ShowCommand : ICommand
                 foreach (var r in routes)
                 {
                     string sslStatus = r.Features.Ssl.Enabled ? "ssl" : "no ssl";
-                    Console.WriteLine($"{r.Type,-8} {r.Domain,-25} target {r.Target} ({sslStatus})");
+                    string extra = r.Type == "redirect" ? $" (code {r.RedirectCode})" : "";
+                    Console.WriteLine($"{r.Type,-8} {r.Domain,-25} target {r.Target}{extra} ({sslStatus})");
                 }
                 break;
 
@@ -60,10 +61,14 @@ public class ShowCommand : ICommand
 
     public void ShowRunningConfig(RouteConfig route)
     {
+        bool isRedirect = route.Type.Equals("redirect", StringComparison.OrdinalIgnoreCase);
+
         Console.WriteLine($"{route.Type} {route.Domain}");
         if (!string.IsNullOrEmpty(route.Target)) Console.WriteLine($" target {route.Target}");
         else Console.WriteLine(" no target");
         
+        if (isRedirect) Console.WriteLine($" code {route.RedirectCode}");
+
         if (route.Features.Ssl.Enabled) 
         {
             if (route.Features.Ssl.Provider == "lets-encrypt") Console.WriteLine(" ssl lets-encrypt");
@@ -71,8 +76,12 @@ public class ShowCommand : ICommand
         }
         else Console.WriteLine(" no ssl");
 
-        Console.WriteLine(route.Features.Gzip ? " gzip" : " no gzip");
-        Console.WriteLine(route.Features.Websockets ? " websockets" : " no websockets");
+        if (!isRedirect)
+        {
+            Console.WriteLine(route.Features.Gzip ? " gzip" : " no gzip");
+            Console.WriteLine(route.Features.Websockets ? " websockets" : " no websockets");
+        }
+        
         Console.WriteLine(route.Features.Cors ? " cors" : " no cors");
 
         if (route.Features.BasicAuth != null)
@@ -84,14 +93,14 @@ public class ShowCommand : ICommand
         foreach (var ip in route.Features.IpFilter.Whitelist) Console.WriteLine($" whitelist {ip}");
         foreach (var ip in route.Features.IpFilter.Blacklist) Console.WriteLine($" blacklist {ip}");
         
-        ShowBalancerConfig(route, 1);
+        if (!isRedirect) ShowBalancerConfig(route, 1);
 
         if (!string.IsNullOrEmpty(route.Features.RateLimit))
             Console.WriteLine($" rate-limit {route.Features.RateLimit}");
         else
             Console.WriteLine(" no rate-limit");
 
-        ShowErrorPagesConfig(route, 1);
+        if (!isRedirect) ShowErrorPagesConfig(route, 1);
 
         Console.WriteLine("!");
     }
@@ -140,10 +149,13 @@ public class ShowCommand : ICommand
             return;
         }
 
+        bool isRedirect = route.Type.Equals("redirect", StringComparison.OrdinalIgnoreCase);
         string typeName = char.ToUpper(type[0]) + type.Substring(1);
         Console.WriteLine($"{typeName}-Route {route.Domain} current state : UP");
         Console.WriteLine($"Line protocol current state : UP (Native Proxy)");
         
+        if (isRedirect) Console.WriteLine($"Redirection Code: {route.RedirectCode}");
+
         if (!string.IsNullOrEmpty(route.Target) && route.Balancer.Upstreams.Count > 0)
         {
             AnsiConsole.MarkupLine("[yellow]WARNING: Target e Balancer configurados. O Balancer terá prioridade.[/]");
@@ -151,10 +163,11 @@ public class ShowCommand : ICommand
 
         Console.WriteLine("Features:");
         Console.WriteLine($"  SSL state : {(route.Features.Ssl.Enabled ? "ENABLED" : "DISABLED")}");
-        Console.WriteLine($"  Gzip state : {(route.Features.Gzip ? "ENABLED" : "DISABLED")}");
+        if (!isRedirect) Console.WriteLine($"  Gzip state : {(route.Features.Gzip ? "ENABLED" : "DISABLED")}");
+        Console.WriteLine($"  CORS state : {(route.Features.Cors ? "ENABLED" : "DISABLED")}");
         Console.WriteLine($"  Authentication : {(route.Features.BasicAuth != null ? "ENABLED" : "DISABLED")}");
         
-        if (route.Balancer.Upstreams.Count > 0 || route.Balancer.Sticky || route.Balancer.Method != "round-robin")
+        if (!isRedirect && (route.Balancer.Upstreams.Count > 0 || route.Balancer.Sticky || route.Balancer.Method != "round-robin"))
         {
             Console.WriteLine("Load Balancing:");
             Console.WriteLine($"  Method: {route.Balancer.Method}");
@@ -166,7 +179,7 @@ public class ShowCommand : ICommand
         Console.WriteLine("Traffic Control:");
         Console.WriteLine($"  Rate-limit : {(!string.IsNullOrEmpty(route.Features.RateLimit) ? route.Features.RateLimit : "DISABLED")}");
         
-        if (route.Features.CustomErrorPages.Count > 0)
+        if (!isRedirect && route.Features.CustomErrorPages.Count > 0)
         {
             Console.WriteLine("Error Pages:");
             foreach (var page in route.Features.CustomErrorPages)

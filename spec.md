@@ -45,22 +45,20 @@ HttpROS utilizes a declarative, file-based state model.
 
 ## 3. Comprehensive Feature Matrix (Roadmap & Status)
 
-### 3.1 Core Routing & Protocol Support
-- [x] **Native Reverse Proxy**: High-performance L7 request forwarding.
-- [x] **Static Content Hosting**: Dedicated mode for serving local web assets.
-- [x] **HTTP Redirection**: Advanced URL mapping and status code control.
-- [x] **Input Integrity**: Automated validation of domains, targets, and file paths.
-
-### 3.2 Traffic Orchestration (Load Balancing)
-- [x] **Algorithms**: `round-robin`, `least-connections`, `ip-hash`.
-- [x] **Session Persistence**: Native `sticky-session` support (Cookie affinity).
-- [x] **Health Checks**: Passive/Active backend monitoring (`health-check` command).
-
-### 3.3 Security & Edge Protection
-- [x] **SSL/TLS Management**: SNI support with Let's Encrypt (Automated ACME renewal) and Manual certs.
-- [x] **AAA (Identity)**: Integrated `Basic Authentication` per route.
-- [x] **IP-based Filtering**: Hierarchical `ip whitelist` and `ip blacklist` control.
-- [x] **Shielding**: Per-route `Rate Limit` control.
+| Feature | Proxy/Static | Redirect | Description |
+| :--- | :---: | :---: | :--- |
+| **Target** | ✅ | ✅ | Destination IP/URL |
+| **Wildcards (*.)** | ✅ | ✅ | Catch-all subdomains |
+| **SSL (SNI)** | ✅ | ✅ | HTTPS Support |
+| **Auth** | ✅ | ✅ | Basic Authentication protection |
+| **IP Filter** | ✅ | ✅ | Blacklist/Whitelist protection |
+| **Rate Limit** | ✅ | ✅ | Throttling/DoS protection |
+| **CORS** | ✅ | ✅ | Cross-Origin headers |
+| **Redirection Code** | ❌ | ✅ | 301, 302, 307, 308 |
+| **Load Balancer** | ✅ | ❌ | Multiple upstreams/Health checks |
+| **Gzip** | ✅ | ❌ | Payload compression |
+| **Websockets** | ✅ | ❌ | Bi-directional socket proxying |
+| **Error Pages** | ✅ | ❌ | Custom HTML for HTTP status codes |
 
 ---
 
