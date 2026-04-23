@@ -38,8 +38,8 @@ public class ValidationService
             return port > 0 && port <= 65535;
         }
 
-        // Allow Hostnames
-        var hostRegex = new Regex(@"^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])(\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]))*$");
+        // Allow Hostnames (Require at least one dot to distinguish from random strings)
+        var hostRegex = new Regex(@"^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])(\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]))+$");
         return hostRegex.IsMatch(input);
     }
 

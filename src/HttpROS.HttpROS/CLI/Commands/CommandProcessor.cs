@@ -1,6 +1,7 @@
 using Spectre.Console;
 using HttpROS.Models;
 using HttpROS.Data;
+using HttpROS.Engine;
 
 namespace HttpROS.CLI.Commands;
 
@@ -8,20 +9,22 @@ public class CommandProcessor
 {
     private readonly StorageService _storage;
     private readonly ValidationService _validator;
+    private readonly ProxyEngine? _proxyEngine;
     private readonly ShowCommand _showCommand;
     private readonly TargetCommand _targetCommand;
     private readonly SslCommand _sslCommand;
 
-    public CommandProcessor(StorageService storage, ValidationService validator)
+    public CommandProcessor(StorageService storage, ValidationService validator, ProxyEngine? proxyEngine = null)
     {
         _storage = storage;
         _validator = validator;
+        _proxyEngine = proxyEngine;
         _showCommand = new ShowCommand(storage);
         _targetCommand = new TargetCommand(storage);
         _sslCommand = new SslCommand(storage);
     }
 
-    private bool EnsureProxyOnly(string command, RouteConfig route)
+    private bool EnsureProxyOnly(string command, HttpROS.Models.RouteConfig route)
     {
         if (route.Type.Equals("redirect", StringComparison.OrdinalIgnoreCase))
         {
@@ -31,7 +34,7 @@ public class CommandProcessor
         return true;
     }
 
-    public void HandleShowCommand(string[] parts, string mode, RouteConfig? activeRoute = null)
+    public void HandleShowCommand(string[] parts, string mode, HttpROS.Models.RouteConfig? activeRoute = null)
     {
         if (parts.Length == 1 && activeRoute != null)
         {
@@ -42,6 +45,45 @@ public class CommandProcessor
         else
         {
             _showCommand.Execute(parts.Skip(1).ToArray());
+        }
+    }
+
+    public async Task HandleEngineCommand(string[] args)
+    {
+        if (_proxyEngine == null)
+        {
+            AnsiConsole.MarkupLine("[red]Error: CLI is running in standalone mode. Use --engine flag to control the engine from this process.[/]");
+            return;
+        }
+
+        if (args.Length < 1) { AnsiConsole.MarkupLine("[red]Usage: engine <start|stop|status>[/]"); return; }
+        
+        string sub = args[0].ToLower();
+        switch (sub)
+        {
+            case "start":
+                if (_proxyEngine.IsRunning) AnsiConsole.MarkupLine("[yellow]Engine is already running.[/]");
+                else 
+                {
+                    _proxyEngine.Start(Array.Empty<string>());
+                    AnsiConsole.MarkupLine("[green]Engine started.[/]");
+                }
+                break;
+            case "stop":
+                if (!_proxyEngine.IsRunning) AnsiConsole.MarkupLine("[yellow]Engine is not running.[/]");
+                else 
+                {
+                    await _proxyEngine.Stop();
+                    AnsiConsole.MarkupLine("[red]Engine stopped.[/]");
+                }
+                break;
+            case "status":
+                string status = _proxyEngine.IsRunning ? "[green]RUNNING[/]" : "[red]STOPPED[/]";
+                AnsiConsole.MarkupLine($"Engine Status: {status}");
+                break;
+            default:
+                AnsiConsole.MarkupLine($"[red]Unknown engine command '{sub}'.[/]");
+                break;
         }
     }
 
@@ -74,7 +116,7 @@ public class CommandProcessor
         }
     }
 
-    public void HandleRouteConfig(string command, string[] args, RouteConfig activeRoute, bool isNo)
+    public void HandleRouteConfig(string command, string[] args, HttpROS.Models.RouteConfig activeRoute, bool isNo)
     {
         switch (command)
         {
@@ -193,7 +235,7 @@ public class CommandProcessor
         }
     }
 
-    public void HandleIpCommand(string[] args, RouteConfig activeRoute, bool isNo)
+    public void HandleIpCommand(string[] args, HttpROS.Models.RouteConfig activeRoute, bool isNo)
     {
         if (args.Length < 1) return;
         string sub = args[0].ToLower();
@@ -225,7 +267,7 @@ public class CommandProcessor
         _storage.SaveRoute(activeRoute);
     }
 
-    public void HandleBalancerConfig(string command, string[] args, RouteConfig activeRoute, bool isNo)
+    public void HandleBalancerConfig(string command, string[] args, HttpROS.Models.RouteConfig activeRoute, bool isNo)
     {
         if (!EnsureProxyOnly("balancer-config", activeRoute)) return;
         switch (command)
@@ -259,7 +301,7 @@ public class CommandProcessor
         _storage.SaveRoute(activeRoute);
     }
 
-    private void HandleHealthCheckCommand(string[] args, RouteConfig activeRoute, bool isNo)
+    private void HandleHealthCheckCommand(string[] args, HttpROS.Models.RouteConfig activeRoute, bool isNo)
     {
         if (isNo) { activeRoute.Balancer.HealthCheck.Enabled = false; return; }
         activeRoute.Balancer.HealthCheck.Enabled = true;
@@ -274,7 +316,7 @@ public class CommandProcessor
         }
     }
 
-    public void HandleErrorPageConfig(string command, string[] args, RouteConfig activeRoute, bool isNo)
+    public void HandleErrorPageConfig(string command, string[] args, HttpROS.Models.RouteConfig activeRoute, bool isNo)
     {
         if (!EnsureProxyOnly("error-page-config", activeRoute)) return;
         if (isNo)
@@ -297,17 +339,25 @@ public class CommandProcessor
 
     public void HandleMonitorLogs()
     {
-        AnsiConsole.MarkupLine("[yellow]Starting real-time log monitor... Press Ctrl+C to stop.[/]");
-        var random = new Random();
-        string[] logs = { "GET /index.html 200 OK", "POST /api/login 401 Unauthorized", "GET /static/style.css 304 Not Modified", "GET /api/v1/status 200 OK" };
+        string logFile = Path.Combine(_storage.GetDataRoot(), "logs", "access.log");
+        if (!File.Exists(logFile))
+        {
+            AnsiConsole.MarkupLine("[red]Error: Log file not found. Ensure the Engine is running.[/]");
+            return;
+        }
+
+        AnsiConsole.MarkupLine("[yellow]Streaming access.log... Press Ctrl+C to stop.[/]");
         
+        using var stream = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        stream.Seek(0, SeekOrigin.End);
+
         try {
             while (true)
             {
-                string ts = DateTime.Now.ToString("HH:mm:ss");
-                string log = logs[random.Next(logs.Length)];
-                Console.WriteLine($"[{ts}] {log}");
-                Thread.Sleep(random.Next(500, 2000));
+                string? line = reader.ReadLine();
+                if (line != null) Console.WriteLine(line);
+                else Thread.Sleep(500);
             }
         } catch (ThreadInterruptedException) { }
     }

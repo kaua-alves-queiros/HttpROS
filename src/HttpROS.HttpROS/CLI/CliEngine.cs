@@ -19,26 +19,19 @@ public class CliEngine
     public RouteConfig? ActiveRoute { get; private set; }
     public bool IsRunning { get; private set; } = true;
 
-    // Standard constructor for production
-    public CliEngine(StorageService storage, ValidationService validator, ProxyEngine proxyEngine, IConfiguration configuration)
+    public CliEngine(StorageService storage, ValidationService validator, ProxyEngine? proxyEngine, IConfiguration configuration)
     {
         _storage = storage;
         _validator = validator;
         _proxyEngine = proxyEngine;
         _shell = new ShellService(storage, configuration);
-        _processor = new CommandProcessor(storage, validator);
+        _processor = new CommandProcessor(storage, validator, proxyEngine);
     }
 
-    // Compatibility constructor for Tests (NOT allowed to touch test files)
     public CliEngine(StorageService storage, ValidationService validator, IConfiguration configuration)
-    {
-        _storage = storage;
-        _validator = validator;
-        _shell = new ShellService(storage, configuration);
-        _processor = new CommandProcessor(storage, validator);
-    }
+        : this(storage, validator, null, configuration) { }
 
-    public void ProcessInput(string input)
+    public async Task ProcessInput(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return;
 
@@ -49,48 +42,26 @@ public class CliEngine
 
         if (string.IsNullOrEmpty(command)) return;
 
-        // Global Commands
         if (command == "clear") { Console.Clear(); return; }
         if (command == "show") { _processor.HandleShowCommand(parts, CurrentMode, ActiveRoute); return; }
         if (command == "top") { CurrentMode = "view"; ActiveRoute = null; return; }
 
-        // Mode Switching & Logic
         switch (CurrentMode)
         {
-            case "view":
-                HandleViewMode(command, argsList, isNoCommand);
-                break;
-
-            case "config":
-                HandleConfigMode(command, argsList, isNoCommand);
-                break;
-
-            case "route-config":
-                HandleRouteConfigMode(command, argsList, isNoCommand);
-                break;
-
-            case "balancer-config":
-                HandleBalancerConfigMode(command, argsList, isNoCommand);
-                break;
-
-            case "error-page-config":
-                HandleErrorPageConfigMode(command, argsList, isNoCommand);
-                break;
+            case "view": await HandleViewMode(command, argsList, isNoCommand); break;
+            case "config": HandleConfigMode(command, argsList, isNoCommand); break;
+            case "route-config": HandleRouteConfigMode(command, argsList, isNoCommand); break;
+            case "balancer-config": HandleBalancerConfigMode(command, argsList, isNoCommand); break;
+            case "error-page-config": HandleErrorPageConfigMode(command, argsList, isNoCommand); break;
         }
     }
 
-    private void HandleViewMode(string command, string[] argsList, bool isNoCommand)
+    private async Task HandleViewMode(string command, string[] argsList, bool isNoCommand)
     {
-        if (command == "configure" || command == "conf")
-        {
-            CurrentMode = "config";
-            AnsiConsole.MarkupLine("[yellow]Entering configuration mode...[/]");
-        }
-        else if (command == "monitor" && argsList.Length > 0 && argsList[0] == "logs")
-        {
-            _processor.HandleMonitorLogs();
-        }
+        if (command == "configure" || command == "conf") { CurrentMode = "config"; AnsiConsole.MarkupLine("[yellow]Entering configuration mode...[/]"); }
+        else if (command == "monitor" && argsList.Length > 0 && argsList[0] == "logs") _processor.HandleMonitorLogs();
         else if (command == "status") _processor.HandleShowCommand(new[] { "show", "status" }, CurrentMode, ActiveRoute);
+        else if (command == "engine") await _processor.HandleEngineCommand(argsList);
         else if (command == "exit" || command == "quit") IsRunning = false;
         else AnsiConsole.MarkupLine($"[red]Error: Unknown command '{command}'.[/]");
     }
@@ -102,31 +73,20 @@ public class CliEngine
         {
             if (argsList.Length < 1) { AnsiConsole.MarkupLine("[red]Error: Domain required.[/]"); return; }
             string domain = argsList[0];
-
-            if (!_validator.IsValidDomain(domain))
-            {
-                AnsiConsole.MarkupLine($"[red]Error: Domínio '{domain}' inválido.[/]");
-                return;
-            }
+            if (!_validator.IsValidDomain(domain)) { AnsiConsole.MarkupLine($"[red]Error: Domínio '{domain}' inválido.[/]"); return; }
 
             if (isNoCommand)
             {
                 _storage.DeleteRoute(command, domain);
-                _proxyEngine?.Reload(); 
                 AnsiConsole.MarkupLine($"[grey]Rota {command} {domain} removida.[/]");
             }
             else
             {
                 var conflict = _storage.FindConflictingRoute(domain, command);
-                if (conflict != null)
-                {
-                    AnsiConsole.MarkupLine($"[red]Error: O dominio '{domain}' ja esta configurado como '{conflict.Type}'.[/]");
-                    return;
-                }
+                if (conflict != null) { AnsiConsole.MarkupLine($"[red]Error: O dominio '{domain}' ja esta configurado como '{conflict.Type}'.[/]"); return; }
 
                 ActiveRoute = _storage.LoadRoute(command, domain) ?? new RouteConfig { Domain = domain, Type = command };
                 _storage.SaveRoute(ActiveRoute);
-                _proxyEngine?.Reload(); 
                 CurrentMode = "route-config";
             }
         }
@@ -137,56 +97,28 @@ public class CliEngine
 
     private void HandleRouteConfigMode(string command, string[] argsList, bool isNoCommand)
     {
-        if (command == "exit" || command == "quit" || command == "return")
-        {
-            CurrentMode = "config";
-            ActiveRoute = null;
-        }
-        else if (command == "save")
-        {
-            _storage.SaveRoute(ActiveRoute!);
-            _proxyEngine?.Reload(); 
-            CurrentMode = "config";
-            ActiveRoute = null;
-        }
-        else if (command == "balancer" && !isNoCommand)
-        {
-            CurrentMode = "balancer-config";
-        }
-        else if (command == "error-page" && !isNoCommand && argsList.Length == 0)
-        {
-            CurrentMode = "error-page-config";
-        }
-        else
-        {
-            _processor.HandleRouteConfig(command, argsList, ActiveRoute!, isNoCommand);
-            _proxyEngine?.Reload(); 
-        }
+        if (command == "exit" || command == "quit" || command == "return") { CurrentMode = "config"; ActiveRoute = null; }
+        else if (command == "save") { _storage.SaveRoute(ActiveRoute!); CurrentMode = "config"; ActiveRoute = null; }
+        else if (command == "balancer" && !isNoCommand) CurrentMode = "balancer-config";
+        else if (command == "error-page" && !isNoCommand && argsList.Length == 0) CurrentMode = "error-page-config";
+        else _processor.HandleRouteConfig(command, argsList, ActiveRoute!, isNoCommand);
     }
 
     private void HandleBalancerConfigMode(string command, string[] argsList, bool isNoCommand)
     {
         if (command == "exit" || command == "quit") CurrentMode = "route-config";
         else if (command == "return") { CurrentMode = "config"; ActiveRoute = null; }
-        else 
-        {
-            _processor.HandleBalancerConfig(command, argsList, ActiveRoute!, isNoCommand);
-            _proxyEngine?.Reload(); 
-        }
+        else _processor.HandleBalancerConfig(command, argsList, ActiveRoute!, isNoCommand);
     }
 
     private void HandleErrorPageConfigMode(string command, string[] argsList, bool isNoCommand)
     {
         if (command == "exit" || command == "quit") CurrentMode = "route-config";
         else if (command == "return") { CurrentMode = "config"; ActiveRoute = null; }
-        else 
-        {
-            _processor.HandleErrorPageConfig(command, argsList, ActiveRoute!, isNoCommand);
-            _proxyEngine?.Reload(); 
-        }
+        else _processor.HandleErrorPageConfig(command, argsList, ActiveRoute!, isNoCommand);
     }
 
-    public void Run()
+    public async Task Run()
     {
         AnsiConsole.Write(new FigletText("HttpROS").Color(Color.Green));
         AnsiConsole.MarkupLine("[grey]Http Router Operation Sistem - v0.1.0[/]");
@@ -196,7 +128,7 @@ public class CliEngine
         {
             string promptPrefix = GetPrompt();
             string input = _shell.ReadLineInteractive(promptPrefix, CurrentMode, ActiveRoute);
-            ProcessInput(input);
+            await ProcessInput(input);
         }
     }
 
