@@ -1,0 +1,27 @@
+[2026-04-23 08:58:52] [SYSTEM] Engine started.
+[2026-04-23 08:59:03] [SYSTEM] Config reloaded.
+[2026-04-23 08:59:09] [SYSTEM] Config reloaded.
+[2026-04-23 08:59:09] [SYSTEM] Config reloaded.
+[2026-04-23 08:59:16] [SYSTEM] Config reloaded.
+[2026-04-23 08:59:16] [SYSTEM] Config reloaded.
+[2026-04-23 08:59:29] [3xx] ::ffff:127.0.0.1 -> teste3.com/ to http://google.com
+[2026-04-23 08:59:46] [SYSTEM] Config reloaded.
+[2026-04-23 08:59:50] [SYSTEM] Config reloaded.
+[2026-04-23 08:59:50] [SYSTEM] Config reloaded.
+[2026-04-23 09:00:10] [SYSTEM] Config reloaded.
+[2026-04-23 09:00:10] [SYSTEM] Config reloaded.
+[2026-04-23 09:00:15] [200] ::ffff:127.0.0.1 -> teste3.com/ (Proxy)
+[2026-04-23 09:00:15] [200] ::ffff:127.0.0.1 -> teste3.com/images/favicons/site.webmanifest (Proxy)
+[2026-04-23 09:00:15] [200] ::ffff:127.0.0.1 -> teste3.com/css/main.css (Proxy)
+oxy)
+[2026-04-23 09:00:15] [200] ::ffff:127.0.0.1 -> teste3.com/api/ (Proxy)
+[2026-04-23 09:00:15] [200] ::ffff:127.0.0.1 -> teste3.com/assets/source-sans-pro-v14-latin-ext_latin-regular.woff2 (Proxy)
+[2026-04-23 09:00:15] [200] ::ffff:127.0.0.1 -> teste3.com/images/favicons/favicon-32x32.png (Proxy)
+[2026-04-23 09:00:15] [200] ::ffff:127.0.0.1 -> teste3.com/images/favicons/favicon.ico (Proxy)
+[2026-04-23 09:00:15] [200] ::ffff:127.0.0.1 -> teste3.com/api/tokens (Proxy)
+[2026-04-23 09:00:15] [200] ::ffff:127.0.0.1 -> teste3.com/images/favicons/favicon-16x16.png (Proxy)
+[2026-04-23 09:00:16] [200] ::ffff:127.0.0.1 -> teste3.com/login (Proxy)
+[2026-04-23 09:00:16] [200] ::ffff:127.0.0.1 -> teste3.com/images/favicons/safari-pinned-tab.svg (Proxy)
+[2026-04-23 09:00:16] [200] ::ffff:127.0.0.1 -> teste3.com/js/login.bundle.js (Proxy)
+[2026-04-23 09:00:16] [200] ::ffff:127.0.0.1 -> teste3.com/images/logo-text-vertical-grey.png (Proxy)
+[2026-04-23 09:00:16] [200] ::ffff:127.0.0.1 -> teste3.com/assets/source-sans-pro-v14-latin-ext_latin-700.woff2 (Proxy)

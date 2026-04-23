@@ -155,12 +155,12 @@ public class CliEngineTests
         Assert.Equal("whitelist", engine.ActiveRoute?.Features.IpFilter.Mode);
 
         engine.ProcessInput("ip whitelist 1.1.1.1");
-        Assert.Contains("1.1.1.1", engine.ActiveRoute?.Features.IpFilter.Whitelist);
-
+        Assert.Contains("1.1.1.1", engine.ActiveRoute!.Features.IpFilter.Whitelist);
+ 
         engine.ProcessInput("no ip whitelist 1.1.1.1");
-        Assert.DoesNotContain("1.1.1.1", engine.ActiveRoute?.Features.IpFilter.Whitelist);
+        Assert.DoesNotContain("1.1.1.1", engine.ActiveRoute!.Features.IpFilter.Whitelist);
     }
-
+ 
     [Fact]
     public void BalancerConfig_Commands_Work()
     {
@@ -169,12 +169,12 @@ public class CliEngineTests
         engine.ProcessInput("proxy test.com");
         engine.ProcessInput("balancer");
         Assert.Equal("balancer-config", engine.CurrentMode);
-
+ 
         engine.ProcessInput("method least-conn");
-        Assert.Equal("least-conn", engine.ActiveRoute?.Balancer.Method);
-
+        Assert.Equal("least-conn", engine.ActiveRoute!.Balancer.Method);
+ 
         engine.ProcessInput("upstream 10.0.0.1:80");
-        Assert.Contains("10.0.0.1:80", engine.ActiveRoute?.Balancer.Upstreams);
+        Assert.Contains("10.0.0.1:80", engine.ActiveRoute!.Balancer.Upstreams);
 
         engine.ProcessInput("health-check interval 60");
         Assert.True(engine.ActiveRoute?.Balancer.HealthCheck.Enabled);
