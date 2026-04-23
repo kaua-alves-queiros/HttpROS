@@ -1,85 +1,78 @@
 # HttpROS Technical Specification
-## Unified HTTP Routing & Network Operating System
+## Reverse Proxy & Redirect Engine
 
-HttpROS is a mission-critical, native HTTP orchestration platform. It integrates a high-performance Data Plane with a sophisticated, hierarchical Control Plane (CLI), providing an "Infrastructure-as-Code" experience through an interactive Network OS interface.
+HttpROS is a reverse proxy and redirection engine built with .NET 10 and YARP. It features a CLI-based management interface (Control Plane) and a high-performance routing engine (Data Plane) that handles proxying, static file hosting, and HTTP redirects.
 
 ---
 
-## 1. Solution Architecture (Enterprise Layout)
-The project follows the standard .NET Solution architecture for separation of concerns and testability.
+## 1. Project Architecture
+The solution is divided into the core engine and an automated test suite.
 
 ### 1.1 Project Structure
 - **`HttpROS.sln`**: Main solution file.
-- **`src/HttpROS.HttpROS/`**: The core application project.
-- **`src/HttpROS.Test/`**: XUnit test suite for automated validation.
-- **`Data/`**: (Root level) Hierarchical database for persistent configuration state.
+- **`src/HttpROS.HttpROS/`**: Core application (Proxy Engine + CLI).
+- **`src/HttpROS.Test/`**: XUnit tests.
+- **`Data/`**: Persistent JSON configuration files.
 
-### 1.2 Control Plane (CLI Engine)
-- **Interactive Shell**: Custom-built loop with contextual intelligence.
-- **Navigation Primitives**: `top` (Root), `return` (Global Config), `exit` (Back).
-- **Validation Layer**: Real-time input sanitization for domains, IPs, and rate-limits.
-
----
-
-## 2. Data Management (State Persistence)
-HttpROS utilizes a declarative, file-based state model.
-
-### 2.1 Persistence Hierarchy
-- **Storage Mapping**:
-  - `Data/proxy/`, `Data/static/`, `Data/redirect/`: Route definitions.
-  - `Data/certs/`: Cryptographic assets.
-  - `Data/error-pages/`: Diagnostic assets.
-- **Atomic Operations**: All state changes are committed via atomic file writes to prevent configuration corruption.
-
-### 2.2 Route Lifecycle & Deletion
-- **Creation**: Commands `proxy`, `static`, or `redirect` followed by a domain.
-- **Modification**: Entering route-config mode for an existing domain.
-- **Deletion**: The `no` prefix applied to route commands (e.g., `no proxy example.com`) will permanently remove the configuration file and trigger a Data Plane reload.
-
-### 2.3 Target Format Standards
-- **Proxy/Static**: Supports `IP`, `IP:Port`, or `Hostname`. If the protocol is omitted, `http://` is assumed as the backend scheme.
-- **Redirect**: Supports full `URLs` (e.g., `https://google.com`). 
-  - **Custom Codes**: Supports `code <301|302|307|308>` (Default: 302). This status code is returned with the `Location` header.
+### 1.2 Management Interface (CLI)
+- **Interactive Shell**: Command-loop with support for contextual navigation.
+- **Navigation**: `top` (Root), `return` (Global Config), `exit` (Back).
+- **Validation**: Real-time checks for domains, IPs, and rate-limit formats.
 
 ---
 
-## 3. Comprehensive Feature Matrix (Roadmap & Status)
+## 2. Data Persistence
+HttpROS stores all configuration in JSON files.
+
+### 2.1 File Structure
+- **Storage Paths**:
+  - `Data/proxy/`, `Data/static/`, `Data/redirect/`: Route configs.
+  - `Data/certs/`: SSL/TLS certificates.
+  - `Data/error-pages/`: Custom HTML error pages.
+- **Save Logic**: Configuration changes are saved to disk immediately, triggering an engine reload.
+
+### 2.2 Route Lifecycle
+- **Creation**: Use `proxy`, `static`, or `redirect` followed by the domain.
+- **Deletion**: Use the `no` prefix (e.g., `no proxy example.com`) to delete the config file.
+
+### 2.3 Targets & Redirection
+- **Proxy/Static Targets**: Supports `IP`, `IP:Port`, or `Hostname`. Defaults to `http://`.
+- **Redirects**: Supports full URLs.
+  - **Codes**: Supports HTTP 301, 302, 307, 308 (Default: 302).
+
+---
+
+## 3. Feature Matrix
 
 | Feature | Proxy/Static | Redirect | Description |
 | :--- | :---: | :---: | :--- |
 | **Target** | ✅ | ✅ | Destination IP/URL |
 | **Wildcards (*.)** | ✅ | ✅ | Catch-all subdomains |
 | **SSL (SNI)** | ✅ | ✅ | HTTPS Support |
-| **Auth** | ✅ | ✅ | Basic Authentication protection |
-| **IP Filter** | ✅ | ✅ | Blacklist/Whitelist protection |
-| **Rate Limit** | ✅ | ✅ | Throttling/DoS protection |
+| **Auth** | ✅ | ✅ | Basic Authentication |
+| **IP Filter** | ✅ | ✅ | Blacklist/Whitelist |
+| **Rate Limit** | ✅ | ✅ | Request throttling |
 | **CORS** | ✅ | ✅ | Cross-Origin headers |
 | **Redirection Code** | ❌ | ✅ | 301, 302, 307, 308 |
-| **Load Balancer** | ✅ | ❌ | Multiple upstreams/Health checks |
-| **Gzip** | ✅ | ❌ | Payload compression |
-| **Websockets** | ✅ | ❌ | Bi-directional socket proxying |
-| **Error Pages** | ✅ | ❌ | Custom HTML for HTTP status codes |
+| **Load Balancer** | ✅ | ❌ | Upstreams & Health checks |
+| **Gzip** | ✅ | ❌ | Compression |
+| **Websockets** | ✅ | ❌ | WS/WSS Proxying |
+| **Error Pages** | ✅ | ❌ | Custom HTML status pages |
 
 ---
 
-## 4. Testing & Quality Assurance
-HttpROS maintains a high-integrity codebase with a target of maximum CLI test coverage.
+## 4. Testing & Quality
+The project uses automated tests to ensure configuration integrity and CLI stability.
 
-### 4.1 Automated Test Suite
-- **Engine Validation**: Testing of `CliEngine` state transitions and command routing.
-- **Persistence Integrity**: Validation of `StorageService` file operations and data consistency.
-- **Validation Logic**: Unit testing of `ValidationService` against RFC compliance and asset existence.
-- **Comprehensive Command Coverage**: Every command flag (Gzip, Websockets, CORS, Auth, etc.) and its `no` variant is verified.
-- **UX Interaction Standards**: All commands, including those using the `no` prefix, must support contextual help (`?`) and Tab-Completion for discovery.
-
-### 4.2 Coverage Goals
-- **Control Plane**: 100% coverage of navigation and command dispatching logic.
-- **Data Plane Persistence**: 100% coverage of serialization and atomic storage operations.
-- **Validation Layer**: 100% coverage of all regex and integrity checks.
+### 4.1 Test Areas
+- **CLI Logic**: Validation of state transitions and command parsing.
+- **Storage**: Verification of file I/O and JSON serialization.
+- **Validation**: Regex checks for RFC compliance.
+- **CI/CD**: Automated build and test on every push to main.
 
 ---
 
-## 5. Operational Environment
-- **Runtime**: .NET 10.0 (Core Engine).
-- **Deployment**: Secure Docker image with integrated SSH Management (Port 50022).
-- **Storage**: Single persistent volume mapping (`./Data:/app/Data`).
+## 5. Environment
+- **Runtime**: .NET 10.0.
+- **Deployment**: Docker-based with optional SSH management.
+- **Storage**: Persistent volume mapping on `/app/Data`.

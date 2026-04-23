@@ -2,19 +2,17 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**HttpROS** is a high-level Nginx wrapper designed to provide a network equipment-like CLI experience (inspired by Datacom, Huawei, and Cisco) for managing HTTP routes, SSL certificates, and security.
-
-It transforms the complex Nginx configuration process into a structured, interactive, and human-readable workflow using a hierarchical command system.
+**HttpROS** is a reverse proxy and redirect engine with a network-style CLI (inspired by Datacom/Cisco). It manages HTTP routes, SSL certificates, and security through a command-line interface.
 
 ## 🚀 Features
 
 - **Network-style CLI**: Hierarchical modes (View, Config, Route-Config) with context-sensitive help (`?`) and Tab completion.
-- **Unified Routing**: Manage Reverse Proxies, Static Sites, and Redirects from a single interface.
-- **Advanced SSL**: Automatic Let's Encrypt integration or manual certificate management.
-- **Granular Security**: IP Filtering (Whitelist/Blacklist) with default policy switching.
+- **Unified Routing**: Reverse Proxies, Static Sites, and Redirects from a single interface.
+- **Advanced SSL**: SNI support with Let's Encrypt or manual certificates.
+- **Security**: IP Filtering (Whitelist/Blacklist) and Basic Auth.
 - **Traffic Control**: Rate limiting and Load balancing (Upstreams).
-- **Rich Interaction**: Huawei-style detailed views (`show proxy <domain>`) and Cisco-style running config blocks (`show`).
-- **State Persistence**: All configurations are stored in clean JSON files, making it easy to version and backup.
+- **Engine Control**: `engine start/stop/status` directly from the CLI.
+- **Persistence**: All configurations are stored in JSON files.
 
 ## 🛠 Installation
 
@@ -51,13 +49,13 @@ dotnet run
 
 ## 🏗 Architecture
 
-HttpROS acts as a control plane. It manages a JSON-based state and generates the corresponding Nginx `.conf` files, then triggers an Nginx reload.
+HttpROS uses a decoupled architecture where the CLI manages the state and the Proxy Engine (YARP) handles the traffic.
 
 ```mermaid
 graph TD
-    CLI[HttpROS CLI] -->|Writes/Reads| JSON[State JSON]
-    JSON -->|Generator| NginxConf[Nginx .conf]
-    NginxConf -->|Reload| Nginx[Nginx Process]
+    CLI[HttpROS CLI] -->|Saves| JSON[JSON Config Files]
+    JSON -->|Watcher| Engine[Proxy Engine - YARP]
+    Engine -->|Routes| Traffic[HTTP/HTTPS Traffic]
 ```
 
 ## 📄 License
