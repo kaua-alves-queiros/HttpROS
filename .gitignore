@@ -1,24 +1,45 @@
+# .NET Build Artifacts
 [Bb]in/
 [Oo]bj/
+*.exe
+*.dll
+*.pdb
+*.msi
+*.nupkg
+
+# IDEs
 .vs/
 .vscode/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
-.DS_Store
+.idea/
 
-# State folders (Network OS Data)
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Test Results and Coverage
+TestResults/
+*.cobertura.xml
+*.lcov
+
+# HttpROS Runtime Data (Ignore state, keep structure if needed)
+Data/proxy/
+Data/static/
+Data/redirect/
+Data/aaa/
+Data/backups/
+Data/certs/
+Data/error-pages/
+Data/logs/
+
+# Legacy root folders
 proxy/
 static/
 redirect/
 aaa/
 backups/
-
-# Runtime and configuration
 certs/
 error-pages/
-
-# OS specific
-.DS_Store
-Thumbs.db
